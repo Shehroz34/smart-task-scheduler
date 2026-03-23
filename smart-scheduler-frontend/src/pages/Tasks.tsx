@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import Navbar from "../components/Navbar";
 import type { FormEvent } from "react";
 import api from "../api/axios";
 
@@ -95,10 +96,17 @@ function Tasks() {
   }
 
   if (loading) {
-    return <p style={{ padding: "20px" }}>Loading tasks...</p>;
+    return (
+      <div>
+        <Navbar />
+        <p style={{ padding: "20px" }}>Loading tasks...</p>
+      </div>
+    );
   }
 
   return (
+    <div>
+    <Navbar />
     <div style={{ padding: "20px", maxWidth: "900px", margin: "0 auto" }}>
       <h1>Tasks</h1>
 
@@ -221,6 +229,8 @@ function Tasks() {
         ))
       )}
     </div>
+    </div>
+
   );
 }
 
