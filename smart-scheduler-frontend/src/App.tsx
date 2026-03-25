@@ -5,7 +5,7 @@ import Dashboard from "./pages/Dashboard";
 import Tasks from "./pages/Tasks";
 import Schedule from "./pages/Schedule";
 import ProtectedRoute from "./components/ProtectedRoute";
-
+import "./index.css";
 function App() {
   return (
     <BrowserRouter>

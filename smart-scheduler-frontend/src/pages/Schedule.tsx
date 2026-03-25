@@ -1,6 +1,21 @@
 import { useEffect, useState } from "react";
-import Navbar from "../components/Navbar";
-import api from "../api/axios";
+
+import api from "@/api/axios";
+import Navbar from "@/components/Navbar";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface PlannedTaskBlock {
   taskId: string;
@@ -45,11 +60,20 @@ interface ScheduleResponse {
   summaries: TaskPlanningSummary[];
 }
 
+const statusBadgeVariant = {
+  scheduled: "secondary",
+  splitAcrossDays: "outline",
+  atRisk: "destructive",
+  missedDeadline: "destructive",
+} as const;
+
 function Schedule() {
   const [schedule, setSchedule] = useState<ScheduleResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [isSavingAvailability, setIsSavingAvailability] = useState(false);
+  const [isReplanning, setIsReplanning] = useState(false);
 
   const [availableFrom, setAvailableFrom] = useState("09:00");
   const [availableTo, setAvailableTo] = useState("18:00");
@@ -83,6 +107,7 @@ function Schedule() {
     try {
       setError("");
       setSuccess("");
+      setIsReplanning(true);
 
       const response = await api.get("/schedule/replan");
       const data = response.data;
@@ -91,15 +116,20 @@ function Schedule() {
       setSuccess("Schedule replanned successfully");
     } catch (err: any) {
       setError(err.response?.data?.message || "Failed to replan schedule");
+    } finally {
+      setIsReplanning(false);
     }
   }
 
-  async function handleUpdateAvailability(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
+  async function handleUpdateAvailability(
+    event: React.FormEvent<HTMLFormElement>
+  ) {
+    event.preventDefault();
 
     try {
       setError("");
       setSuccess("");
+      setIsSavingAvailability(true);
 
       await api.put("/users/availability", {
         availableFrom,
@@ -119,6 +149,8 @@ function Schedule() {
       } else {
         setError(err.response?.data?.message || "Failed to update availability");
       }
+    } finally {
+      setIsSavingAvailability(false);
     }
   }
 
@@ -126,164 +158,373 @@ function Schedule() {
     fetchSchedule();
   }, []);
 
-  if (loading) {
-    return (
-      <div>
-        <Navbar />
-        <p style={{ padding: "20px" }}>Loading schedule...</p>
-      </div>
-    );
-  }
-
   return (
-    <div>
-    <Navbar />
-    <div style={{ padding: "20px", maxWidth: "1000px", margin: "0 auto" }}>
-      <h1>Schedule</h1>
+    <div className="min-h-screen bg-[linear-gradient(180deg,rgba(246,248,251,1),rgba(255,255,255,1))]">
+      <Navbar />
 
-      <form
-        onSubmit={handleUpdateAvailability}
-        style={{
-          border: "1px solid #ccc",
-          borderRadius: "8px",
-          padding: "16px",
-          marginBottom: "24px",
-        }}
-      >
-        <h2>Availability</h2>
+      <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
+        <section className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+          <Card className="border-border/70 bg-background/90 py-0 shadow-none">
+            <CardHeader className="space-y-3 px-6 pt-6">
+              <Badge variant="outline" className="w-fit rounded-full px-3 py-1">
+                Availability
+              </Badge>
+              <div className="space-y-1">
+                <CardTitle className="text-3xl font-semibold tracking-tight text-foreground">
+                  Define your working window
+                </CardTitle>
+                <CardDescription className="text-sm leading-6">
+                  Set the hours the scheduler can use, then replan around your
+                  actual workday.
+                </CardDescription>
+              </div>
+            </CardHeader>
 
-        <div style={{ marginBottom: "10px" }}>
-          <label>Available From</label>
-          <input
-            type="time"
-            value={availableFrom}
-            onChange={(e) => setAvailableFrom(e.target.value)}
-            style={{ display: "block", padding: "8px", width: "100%", marginTop: "4px" }}
-          />
-        </div>
+            <CardContent className="space-y-5 px-6 pb-6">
+              {error && (
+                <Alert variant="destructive" className="border-destructive/20 bg-destructive/5">
+                  <AlertTitle>Schedule action failed</AlertTitle>
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
 
-        <div style={{ marginBottom: "10px" }}>
-          <label>Available To</label>
-          <input
-            type="time"
-            value={availableTo}
-            onChange={(e) => setAvailableTo(e.target.value)}
-            style={{ display: "block", padding: "8px", width: "100%", marginTop: "4px" }}
-          />
-        </div>
+              {success && (
+                <Alert className="border-border/70 bg-muted/20">
+                  <AlertTitle>Updated</AlertTitle>
+                  <AlertDescription>{success}</AlertDescription>
+                </Alert>
+              )}
 
-        <div style={{ marginBottom: "10px" }}>
-          <label>Break Start</label>
-          <input
-            type="time"
-            value={breakStart}
-            onChange={(e) => setBreakStart(e.target.value)}
-            style={{ display: "block", padding: "8px", width: "100%", marginTop: "4px" }}
-          />
-        </div>
+              <form onSubmit={handleUpdateAvailability} className="space-y-5">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="availableFrom">Available from</Label>
+                    <Input
+                      id="availableFrom"
+                      type="time"
+                      value={availableFrom}
+                      onChange={(event) => setAvailableFrom(event.target.value)}
+                      className="h-11 rounded-xl bg-background"
+                    />
+                  </div>
 
-        <div style={{ marginBottom: "10px" }}>
-          <label>Break End</label>
-          <input
-            type="time"
-            value={breakEnd}
-            onChange={(e) => setBreakEnd(e.target.value)}
-            style={{ display: "block", padding: "8px", width: "100%", marginTop: "4px" }}
-          />
-        </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="availableTo">Available to</Label>
+                    <Input
+                      id="availableTo"
+                      type="time"
+                      value={availableTo}
+                      onChange={(event) => setAvailableTo(event.target.value)}
+                      className="h-11 rounded-xl bg-background"
+                    />
+                  </div>
+                </div>
 
-        <button type="submit">Update Availability</button>
-        <button
-          type="button"
-          onClick={handleReplan}
-          style={{ marginLeft: "10px" }}
-        >
-          Replan Schedule
-        </button>
-      </form>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="breakStart">Break start</Label>
+                    <Input
+                      id="breakStart"
+                      type="time"
+                      value={breakStart}
+                      onChange={(event) => setBreakStart(event.target.value)}
+                      className="h-11 rounded-xl bg-background"
+                    />
+                  </div>
 
-      {error && <p style={{ color: "red" }}>{error}</p>}
-      {success && <p style={{ color: "green" }}>{success}</p>}
+                  <div className="space-y-2">
+                    <Label htmlFor="breakEnd">Break end</Label>
+                    <Input
+                      id="breakEnd"
+                      type="time"
+                      value={breakEnd}
+                      onChange={(event) => setBreakEnd(event.target.value)}
+                      className="h-11 rounded-xl bg-background"
+                    />
+                  </div>
+                </div>
 
-      {schedule && (
-        <>
-          <div
-            style={{
-              border: "1px solid #ccc",
-              borderRadius: "8px",
-              padding: "16px",
-              marginBottom: "24px",
-            }}
-          >
-            <h2>Stats</h2>
-            <p>Total Tasks: {schedule.totalTasks}</p>
-            <p>Total Blocks: {schedule.totalBlocks}</p>
-            <p>Scheduled: {schedule.stats.scheduled}</p>
-            <p>Split Across Days: {schedule.stats.splitAcrossDays}</p>
-            <p>At Risk: {schedule.stats.atRisk}</p>
-            <p>Missed Deadline: {schedule.stats.missedDeadline}</p>
-          </div>
+                <div className="flex flex-wrap gap-3">
+                  <Button
+                    type="submit"
+                    className="h-11 rounded-full px-5 text-sm"
+                    disabled={isSavingAvailability}
+                  >
+                    {isSavingAvailability
+                      ? "Saving..."
+                      : "Update availability"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-11 rounded-full px-5 text-sm"
+                    onClick={handleReplan}
+                    disabled={isReplanning}
+                  >
+                    {isReplanning ? "Replanning..." : "Replan schedule"}
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
 
-          <div style={{ marginBottom: "24px" }}>
-            <h2>Planned Blocks</h2>
+          <Card className="border-border/70 bg-background/90 py-0 shadow-none">
+            <CardHeader className="space-y-3 px-6 pt-6">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div className="space-y-1">
+                  <Badge variant="secondary" className="rounded-full px-3 py-1">
+                    Snapshot
+                  </Badge>
+                  <CardTitle className="text-3xl font-semibold tracking-tight text-foreground">
+                    Schedule health
+                  </CardTitle>
+                  <CardDescription className="text-sm leading-6">
+                    Check how many tasks fit, split, or miss their deadlines.
+                  </CardDescription>
+                </div>
 
-            {schedule.plan.length === 0 ? (
-              <p>No planned blocks found.</p>
-            ) : (
-              schedule.plan.map((block, index) => (
-                <div
-                  key={`${block.taskId}-${index}`}
-                  style={{
-                    border: "1px solid #ccc",
-                    padding: "16px",
-                    marginBottom: "12px",
-                    borderRadius: "8px",
-                  }}
-                >
-                  <h3>{block.title}</h3>
-                  <p>Date: {block.date}</p>
-                  <p>
-                    Time: {block.start} - {block.end}
+                <div className="rounded-2xl border border-border/70 bg-muted/40 px-4 py-3">
+                  <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                    Planned blocks
                   </p>
-                  <p>Duration: {block.duration} minutes</p>
-                  <p>Priority: {block.priority}</p>
-                  <p>Status: {block.status}</p>
+                  <p className="mt-1 text-3xl font-semibold text-foreground">
+                    {schedule?.totalBlocks ?? 0}
+                  </p>
                 </div>
-              ))
-            )}
-          </div>
+              </div>
+            </CardHeader>
 
-          <div>
-            <h2>Task Summaries</h2>
+            <CardContent className="grid gap-4 px-6 pb-6 sm:grid-cols-2">
+              {loading
+                ? Array.from({ length: 4 }).map((_, index) => (
+                    <Card key={index} className="border-border/70 py-0 shadow-none">
+                      <CardContent className="space-y-3 px-5 py-5">
+                        <Skeleton className="h-4 w-24" />
+                        <Skeleton className="h-10 w-20" />
+                        <Skeleton className="h-4 w-full" />
+                      </CardContent>
+                    </Card>
+                  ))
+                : [
+                    {
+                      label: "Total tasks",
+                      value: schedule?.totalTasks ?? 0,
+                    },
+                    {
+                      label: "Scheduled",
+                      value: schedule?.stats.scheduled ?? 0,
+                    },
+                    {
+                      label: "Split across days",
+                      value: schedule?.stats.splitAcrossDays ?? 0,
+                    },
+                    {
+                      label: "Missed deadline",
+                      value: schedule?.stats.missedDeadline ?? 0,
+                    },
+                  ].map((item) => (
+                    <Card
+                      key={item.label}
+                      className="border-border/70 bg-background py-0 shadow-none"
+                    >
+                      <CardContent className="space-y-2 px-5 py-5">
+                        <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                          {item.label}
+                        </p>
+                        <p className="text-4xl font-semibold tracking-tight text-foreground">
+                          {item.value}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  ))}
+            </CardContent>
+          </Card>
+        </section>
 
-            {schedule.summaries.length === 0 ? (
-              <p>No summaries found.</p>
-            ) : (
-              schedule.summaries.map((item) => (
-                <div
-                  key={item.taskId}
-                  style={{
-                    border: "1px solid #aaa",
-                    padding: "16px",
-                    marginBottom: "12px",
-                    borderRadius: "8px",
-                  }}
-                >
-                  <h3>{item.title}</h3>
-                  <p>Status: {item.status}</p>
-                  <p>Total Duration: {item.totalDuration} minutes</p>
-                  <p>Scheduled Duration: {item.scheduledDuration} minutes</p>
-                  <p>Remaining Duration: {item.remainingDuration} minutes</p>
-                  <p>Priority: {item.priority}</p>
-                  <p>Deadline: {new Date(item.deadline).toLocaleString()}</p>
-                  {item.reason && <p>Reason: {item.reason}</p>}
-                </div>
-              ))
-            )}
-          </div>
-        </>
-      )}
-    </div>
+        <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+          <Card className="border-border/70 bg-background/90 py-0 shadow-none">
+            <CardHeader className="space-y-2 px-6 pt-6">
+              <CardTitle className="text-2xl font-semibold text-foreground">
+                Planned blocks
+              </CardTitle>
+              <CardDescription className="text-sm leading-6">
+                The concrete time blocks the scheduler generated from your tasks.
+              </CardDescription>
+            </CardHeader>
+
+            <CardContent className="space-y-4 px-6 pb-6">
+              {loading ? (
+                Array.from({ length: 4 }).map((_, index) => (
+                  <Card key={index} className="border-border/70 py-0 shadow-none">
+                    <CardContent className="space-y-3 px-5 py-5">
+                      <Skeleton className="h-4 w-32" />
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="h-4 w-1/2" />
+                    </CardContent>
+                  </Card>
+                ))
+              ) : schedule && schedule.plan.length > 0 ? (
+                schedule.plan.map((block, index) => (
+                  <Card
+                    key={`${block.taskId}-${index}`}
+                    className="border-border/70 bg-background py-0 shadow-none"
+                  >
+                    <CardHeader className="space-y-3 px-5 pt-5">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div className="space-y-1">
+                          <CardTitle className="text-xl font-semibold text-foreground">
+                            {block.title}
+                          </CardTitle>
+                          <CardDescription className="text-sm leading-6">
+                            {block.date} · {block.start} to {block.end}
+                          </CardDescription>
+                        </div>
+                        <Badge
+                          variant={statusBadgeVariant[block.status]}
+                          className="rounded-full px-3 py-1"
+                        >
+                          {block.status}
+                        </Badge>
+                      </div>
+                    </CardHeader>
+
+                    <CardContent className="space-y-4 px-5 pb-5">
+                      <div className="flex flex-wrap gap-2">
+                        <Badge variant="outline" className="rounded-full px-3 py-1">
+                          {block.duration} min
+                        </Badge>
+                        <Badge variant="secondary" className="rounded-full px-3 py-1">
+                          {block.priority} priority
+                        </Badge>
+                      </div>
+
+                      <Separator />
+
+                      <p className="text-sm text-muted-foreground">
+                        Deadline:{" "}
+                        <span className="font-medium text-foreground">
+                          {new Date(block.deadline).toLocaleString()}
+                        </span>
+                      </p>
+                    </CardContent>
+                  </Card>
+                ))
+              ) : (
+                <Card className="border-dashed border-border/70 bg-muted/20 py-0 shadow-none">
+                  <CardContent className="space-y-2 px-6 py-10 text-center">
+                    <p className="text-lg font-medium text-foreground">
+                      No planned blocks
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Add tasks or replan the schedule to generate blocks.
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="border-border/70 bg-background/90 py-0 shadow-none">
+            <CardHeader className="space-y-2 px-6 pt-6">
+              <CardTitle className="text-2xl font-semibold text-foreground">
+                Task summaries
+              </CardTitle>
+              <CardDescription className="text-sm leading-6">
+                A per-task breakdown of scheduled time, remaining effort, and risk.
+              </CardDescription>
+            </CardHeader>
+
+            <CardContent className="space-y-4 px-6 pb-6">
+              {loading ? (
+                Array.from({ length: 4 }).map((_, index) => (
+                  <Card key={index} className="border-border/70 py-0 shadow-none">
+                    <CardContent className="space-y-3 px-5 py-5">
+                      <Skeleton className="h-4 w-28" />
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="h-4 w-3/4" />
+                    </CardContent>
+                  </Card>
+                ))
+              ) : schedule && schedule.summaries.length > 0 ? (
+                schedule.summaries.map((item) => (
+                  <Card
+                    key={item.taskId}
+                    className="border-border/70 bg-background py-0 shadow-none"
+                  >
+                    <CardHeader className="space-y-3 px-5 pt-5">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div className="space-y-1">
+                          <CardTitle className="text-xl font-semibold text-foreground">
+                            {item.title}
+                          </CardTitle>
+                          <CardDescription className="text-sm leading-6">
+                            Deadline {new Date(item.deadline).toLocaleString()}
+                          </CardDescription>
+                        </div>
+                        <Badge
+                          variant={statusBadgeVariant[item.status]}
+                          className="rounded-full px-3 py-1"
+                        >
+                          {item.status}
+                        </Badge>
+                      </div>
+                    </CardHeader>
+
+                    <CardContent className="space-y-4 px-5 pb-5">
+                      <div className="grid gap-3 text-sm text-muted-foreground sm:grid-cols-2">
+                        <p>
+                          Total:{" "}
+                          <span className="font-medium text-foreground">
+                            {item.totalDuration} min
+                          </span>
+                        </p>
+                        <p>
+                          Scheduled:{" "}
+                          <span className="font-medium text-foreground">
+                            {item.scheduledDuration} min
+                          </span>
+                        </p>
+                        <p>
+                          Remaining:{" "}
+                          <span className="font-medium text-foreground">
+                            {item.remainingDuration} min
+                          </span>
+                        </p>
+                        <p>
+                          Priority:{" "}
+                          <span className="font-medium capitalize text-foreground">
+                            {item.priority}
+                          </span>
+                        </p>
+                      </div>
+
+                      {item.reason && (
+                        <>
+                          <Separator />
+                          <p className="text-sm leading-6 text-muted-foreground">
+                            {item.reason}
+                          </p>
+                        </>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))
+              ) : (
+                <Card className="border-dashed border-border/70 bg-muted/20 py-0 shadow-none">
+                  <CardContent className="space-y-2 px-6 py-10 text-center">
+                    <p className="text-lg font-medium text-foreground">
+                      No summaries yet
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Schedule data will appear here once tasks are planned.
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+            </CardContent>
+          </Card>
+        </section>
+      </main>
     </div>
   );
 }
