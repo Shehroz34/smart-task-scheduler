@@ -1,24 +1,14 @@
 services:
-  mongo:
-    image: mongo:7
-    restart: unless-stopped
-    volumes:
-      - mongo-data:/data/db
-    ports:
-      - "27017:27017"
-
   backend:
     build:
       context: ./balance-backend
     restart: unless-stopped
     environment:
       PORT: 5050
-      MONGO_URI: mongodb://mongo:27017/smart_scheduler
-      JWT_SECRET: change-me-in-production
+      MONGO_URI: mongodb+srv://shehrozsafarish_db_user:KAbdmrB894fzNZ7t@cluster0.pbadlab.mongodb.net/smart_scheduler?retryWrites=true&w=majority&appName=Cluster0
+      JWT_SECRET: change_this_to_a_long_random_string
       JWT_EXPIRES_IN: 7d
-      CLIENT_ORIGIN: http://localhost:5173
-    depends_on:
-      - mongo
+      CORS_ORIGIN: http://localhost:5173
     ports:
       - "5050:5050"
 
@@ -32,6 +22,3 @@ services:
       - backend
     ports:
       - "5173:4173"
-
-volumes:
-  mongo-data:

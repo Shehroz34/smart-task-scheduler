@@ -76,6 +76,7 @@ function Schedule() {
   const [success, setSuccess] = useState("");
   const [isSavingAvailability, setIsSavingAvailability] = useState(false);
   const [isReplanning, setIsReplanning] = useState(false);
+  const [isDownloadingCalendar, setIsDownloadingCalendar] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [viewMonth, setViewMonth] = useState<Date>(new Date());
 
@@ -168,6 +169,39 @@ function Schedule() {
       }
     } finally {
       setIsSavingAvailability(false);
+    }
+  }
+
+  async function handleDownloadCalendar() {
+    try {
+      setError("");
+      setIsDownloadingCalendar(true);
+
+      const apiBaseUrl = import.meta.env.VITE_API_URL || "/api";
+      const calendarUrl = apiBaseUrl.endsWith("/api")
+        ? `${apiBaseUrl.slice(0, -4)}/calendar/download-all`
+        : `${apiBaseUrl}/calendar/download-all`;
+
+      const response = await api.get(calendarUrl, {
+        responseType: "blob",
+      });
+
+      const blob = new Blob([response.data], { type: "text/calendar" });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      link.href = url;
+      link.download = "schedule.ics";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err: any) {
+      setError(
+        err.response?.data?.message || "Failed to download Apple Calendar file"
+      );
+    } finally {
+      setIsDownloadingCalendar(false);
     }
   }
 
@@ -351,6 +385,17 @@ function Schedule() {
                   disabled={isReplanning}
                 >
                   {isReplanning ? "Replanning..." : "Replan schedule"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="h-11 rounded-full px-5 text-sm"
+                  onClick={handleDownloadCalendar}
+                  disabled={isDownloadingCalendar}
+                >
+                  {isDownloadingCalendar
+                    ? "Preparing .ics..."
+                    : "Download Apple Calendar"}
                 </Button>
               </div>
             </form>
