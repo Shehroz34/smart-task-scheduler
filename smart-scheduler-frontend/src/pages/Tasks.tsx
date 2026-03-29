@@ -56,6 +56,7 @@ function Tasks() {
   const [formError, setFormError] = useState("");
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isQueueExpanded, setIsQueueExpanded] = useState(false);
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -178,7 +179,7 @@ function Tasks() {
 
       <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
         <section className="grid gap-6 lg:grid-cols-[0.92fr_1.08fr]">
-          <Card className="border-border/70 bg-background/90 py-0 shadow-none">
+          <Card className="border-border/70 bg-background/90 py-0 shadow-none lg:min-h-[46rem]">
             <CardHeader className="space-y-3 px-6 pt-6">
               <Badge variant="outline" className="w-fit rounded-full px-3 py-1">
                 Task studio
@@ -322,7 +323,7 @@ function Tasks() {
             </CardContent>
           </Card>
 
-          <Card className="border-border/70 bg-background/90 py-0 shadow-none">
+          <Card className="border-border/70 bg-background/90 py-0 shadow-none lg:min-h-[46rem]">
             <CardHeader className="space-y-3 px-6 pt-6">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="space-y-1">
@@ -346,6 +347,20 @@ function Tasks() {
                   </p>
                 </div>
               </div>
+
+              <div className="flex items-center justify-between gap-3 rounded-2xl border border-border/70 bg-muted/20 px-4 py-3">
+                <p className="text-sm text-muted-foreground">
+                  Keep the queue compact by default, then expand it only when you need a longer review session.
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-10 shrink-0 rounded-full px-4 text-sm"
+                  onClick={() => setIsQueueExpanded((current) => !current)}
+                >
+                  {isQueueExpanded ? "Slide up queue" : "Slide down queue"}
+                </Button>
+              </div>
             </CardHeader>
 
             <CardContent className="space-y-4 px-6 pb-6">
@@ -356,126 +371,140 @@ function Tasks() {
                 </Alert>
               )}
 
-              {loading ? (
-                <div className="space-y-4">
-                  {Array.from({ length: 4 }).map((_, index) => (
-                    <Card key={index} className="border-border/70 py-0 shadow-none">
-                      <CardContent className="space-y-3 px-5 py-5">
-                        <Skeleton className="h-4 w-32" />
-                        <Skeleton className="h-4 w-full" />
-                        <Skeleton className="h-4 w-2/3" />
+              <div
+                className={[
+                  "overflow-hidden transition-[max-height] duration-300 ease-in-out",
+                  isQueueExpanded ? "max-h-[70rem]" : "max-h-[34rem]",
+                ].join(" ")}
+              >
+                <div
+                  className={[
+                    "space-y-4 pr-1",
+                    isQueueExpanded ? "overflow-y-auto max-h-[70rem]" : "overflow-y-auto max-h-[34rem]",
+                  ].join(" ")}
+                >
+                  {loading ? (
+                    <div className="space-y-4">
+                      {Array.from({ length: 4 }).map((_, index) => (
+                        <Card key={index} className="border-border/70 py-0 shadow-none">
+                          <CardContent className="space-y-3 px-5 py-5">
+                            <Skeleton className="h-4 w-32" />
+                            <Skeleton className="h-4 w-full" />
+                            <Skeleton className="h-4 w-2/3" />
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  ) : tasks.length === 0 ? (
+                    <Card className="border-dashed border-border/70 bg-muted/20 py-0 shadow-none">
+                      <CardContent className="space-y-2 px-6 py-10 text-center">
+                        <p className="text-lg font-medium text-foreground">
+                          No tasks yet
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          Add your first task to start generating a schedule.
+                        </p>
                       </CardContent>
                     </Card>
-                  ))}
+                  ) : (
+                    tasks.map((task) => (
+                      <Card
+                        key={task._id}
+                        className="border-border/70 bg-background py-0 shadow-none"
+                      >
+                        <CardHeader className="space-y-3 px-5 pt-5">
+                          <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div className="space-y-1">
+                              <CardTitle className="text-xl font-semibold text-foreground">
+                                {task.title}
+                              </CardTitle>
+                              <CardDescription className="text-sm leading-6">
+                                {task.description?.trim() || "No description provided."}
+                              </CardDescription>
+                            </div>
+
+                            <Badge
+                              variant={
+                                task.status === "completed" ? "secondary" : "outline"
+                              }
+                              className="rounded-full px-3 py-1"
+                            >
+                              {task.status}
+                            </Badge>
+                          </div>
+                        </CardHeader>
+
+                        <CardContent className="space-y-4 px-5 pb-5">
+                          <div className="flex flex-wrap gap-2">
+                            <Badge
+                              variant={priorityBadgeVariant[task.priority]}
+                              className="rounded-full px-3 py-1"
+                            >
+                              {task.priority} priority
+                            </Badge>
+                            <Badge
+                              variant={difficultyBadgeVariant[task.difficulty]}
+                              className="rounded-full px-3 py-1"
+                            >
+                              {task.difficulty}
+                            </Badge>
+                            <Badge variant="outline" className="rounded-full px-3 py-1">
+                              {task.duration} min
+                            </Badge>
+                          </div>
+
+                          <Separator />
+
+                          <div className="grid gap-3 text-sm text-muted-foreground sm:grid-cols-2">
+                            <p>
+                              Deadline:{" "}
+                              <span className="font-medium text-foreground">
+                                {new Date(task.deadline).toLocaleString()}
+                              </span>
+                            </p>
+                            <p>
+                              Status:{" "}
+                              <span className="font-medium capitalize text-foreground">
+                                {task.status}
+                              </span>
+                            </p>
+                          </div>
+
+                          <div className="flex flex-wrap gap-3">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className="h-10 rounded-full px-4 text-sm"
+                              onClick={() => handleEditTask(task)}
+                            >
+                              Edit
+                            </Button>
+
+                            {task.status === "pending" && (
+                              <Button
+                                type="button"
+                                className="h-10 rounded-full px-4 text-sm"
+                                onClick={() => handleCompleteTask(task._id)}
+                              >
+                                Mark complete
+                              </Button>
+                            )}
+
+                            <Button
+                              type="button"
+                              variant="destructive"
+                              className="h-10 rounded-full px-4 text-sm"
+                              onClick={() => handleDeleteTask(task._id)}
+                            >
+                              Delete
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))
+                  )}
                 </div>
-              ) : tasks.length === 0 ? (
-                <Card className="border-dashed border-border/70 bg-muted/20 py-0 shadow-none">
-                  <CardContent className="space-y-2 px-6 py-10 text-center">
-                    <p className="text-lg font-medium text-foreground">
-                      No tasks yet
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      Add your first task to start generating a schedule.
-                    </p>
-                  </CardContent>
-                </Card>
-              ) : (
-                tasks.map((task) => (
-                  <Card
-                    key={task._id}
-                    className="border-border/70 bg-background py-0 shadow-none"
-                  >
-                    <CardHeader className="space-y-3 px-5 pt-5">
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div className="space-y-1">
-                          <CardTitle className="text-xl font-semibold text-foreground">
-                            {task.title}
-                          </CardTitle>
-                          <CardDescription className="text-sm leading-6">
-                            {task.description?.trim() || "No description provided."}
-                          </CardDescription>
-                        </div>
-
-                        <Badge
-                          variant={
-                            task.status === "completed" ? "secondary" : "outline"
-                          }
-                          className="rounded-full px-3 py-1"
-                        >
-                          {task.status}
-                        </Badge>
-                      </div>
-                    </CardHeader>
-
-                    <CardContent className="space-y-4 px-5 pb-5">
-                      <div className="flex flex-wrap gap-2">
-                        <Badge
-                          variant={priorityBadgeVariant[task.priority]}
-                          className="rounded-full px-3 py-1"
-                        >
-                          {task.priority} priority
-                        </Badge>
-                        <Badge
-                          variant={difficultyBadgeVariant[task.difficulty]}
-                          className="rounded-full px-3 py-1"
-                        >
-                          {task.difficulty}
-                        </Badge>
-                        <Badge variant="outline" className="rounded-full px-3 py-1">
-                          {task.duration} min
-                        </Badge>
-                      </div>
-
-                      <Separator />
-
-                      <div className="grid gap-3 text-sm text-muted-foreground sm:grid-cols-2">
-                        <p>
-                          Deadline:{" "}
-                          <span className="font-medium text-foreground">
-                            {new Date(task.deadline).toLocaleString()}
-                          </span>
-                        </p>
-                        <p>
-                          Status:{" "}
-                          <span className="font-medium capitalize text-foreground">
-                            {task.status}
-                          </span>
-                        </p>
-                      </div>
-
-                      <div className="flex flex-wrap gap-3">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="h-10 rounded-full px-4 text-sm"
-                          onClick={() => handleEditTask(task)}
-                        >
-                          Edit
-                        </Button>
-
-                        {task.status === "pending" && (
-                          <Button
-                            type="button"
-                            className="h-10 rounded-full px-4 text-sm"
-                            onClick={() => handleCompleteTask(task._id)}
-                          >
-                            Mark complete
-                          </Button>
-                        )}
-
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          className="h-10 rounded-full px-4 text-sm"
-                          onClick={() => handleDeleteTask(task._id)}
-                        >
-                          Delete
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))
-              )}
+              </div>
             </CardContent>
           </Card>
         </section>

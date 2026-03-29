@@ -78,6 +78,8 @@ const statusBadgeVariant = {
   atRisk: "destructive",
 } as const;
 
+const scheduleRefreshKey = "scheduleLastUpdatedAt";
+
 function getCalendarEndpoint(path: string): string {
   const apiBaseUrl = import.meta.env.VITE_API_URL || "/api";
 
@@ -86,6 +88,10 @@ function getCalendarEndpoint(path: string): string {
   }
 
   return `${apiBaseUrl}${path}`;
+}
+
+function notifyScheduleChanged() {
+  localStorage.setItem(scheduleRefreshKey, Date.now().toString());
 }
 
 function Schedule() {
@@ -162,6 +168,7 @@ function Schedule() {
       const firstPlannedDate = data.plan?.length ? parseISO(data.plan[0].date) : undefined;
       setSelectedDate(firstPlannedDate);
       setViewMonth(firstPlannedDate ?? new Date());
+      notifyScheduleChanged();
       setSuccess("Schedule replanned successfully");
     } catch (err: any) {
       setError(err.response?.data?.message || "Failed to replan schedule");
@@ -195,6 +202,7 @@ function Schedule() {
       const firstPlannedDate = data.plan?.length ? parseISO(data.plan[0].date) : undefined;
       setSelectedDate(firstPlannedDate);
       setViewMonth(firstPlannedDate ?? new Date());
+      notifyScheduleChanged();
       setSuccess("Availability updated successfully");
     } catch (err: any) {
       if (err.response?.data?.errors) {
@@ -261,6 +269,7 @@ function Schedule() {
       });
 
       await Promise.all([fetchSchedule(), fetchImportedEvents()]);
+      notifyScheduleChanged();
       setSuccess("Calendar imported successfully and busy times were applied.");
     } catch (err: any) {
       setError(err.response?.data?.message || "Failed to import calendar");
@@ -281,6 +290,7 @@ function Schedule() {
 
       await api.delete(getCalendarEndpoint("/calendar/events"));
       await Promise.all([fetchSchedule(), fetchImportedEvents()]);
+      notifyScheduleChanged();
       setSuccess("Imported calendar events cleared successfully.");
     } catch (err: any) {
       setError(
@@ -579,8 +589,8 @@ function Schedule() {
 
           <CardContent className="px-6 pb-6">
             {loading ? (
-              <div className="grid gap-6 lg:grid-cols-[1fr_0.9fr]">
-                <Skeleton className="min-h-[360px] rounded-2xl" />
+              <div className="grid gap-6 lg:grid-cols-2 lg:items-stretch">
+                <Skeleton className="min-h-[32rem] rounded-2xl" />
                 <div className="space-y-4">
                   {Array.from({ length: 3 }).map((_, index) => (
                     <Skeleton key={index} className="h-24 rounded-2xl" />
@@ -588,8 +598,8 @@ function Schedule() {
                 </div>
               </div>
             ) : schedule && schedule.plan.length > 0 ? (
-              <div className="grid gap-6 lg:grid-cols-[1fr_0.9fr]">
-                <div className="rounded-[1.5rem] border border-border/70 bg-muted/10 p-3">
+              <div className="grid gap-6 lg:grid-cols-2 lg:items-stretch">
+                <div className="flex min-h-[32rem] justify-center rounded-[1.5rem] border border-border/70 bg-muted/10 p-3">
                   <Calendar
                     mode="single"
                     selected={activeDate}
@@ -602,6 +612,7 @@ function Schedule() {
                     month={viewMonth}
                     onMonthChange={setViewMonth}
                     showOutsideDays={false}
+                    className="mx-auto w-full max-w-[30rem]"
                     classNames={{
                       day: "group/day relative aspect-square h-full w-full rounded-(--cell-radius) p-0 text-center select-none",
                     }}
@@ -635,7 +646,7 @@ function Schedule() {
                   />
                 </div>
 
-                <div className="space-y-4">
+                <div className="flex min-h-[32rem] flex-col gap-4">
                   <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
                     <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
                       {activeDate ? format(activeDate, "EEEE") : "No date selected"}
@@ -649,52 +660,56 @@ function Schedule() {
                     </p>
                   </div>
 
-                  {selectedDayBlocks.length > 0 ? (
-                    selectedDayBlocks.map((block, index) => (
-                      <Card
-                        key={`${block.taskId}-${index}`}
-                        className="border-border/70 bg-background py-0 shadow-none"
-                      >
-                        <CardContent className="space-y-3 px-5 py-5">
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="space-y-1">
-                              <p className="text-lg font-semibold text-foreground">
-                                {block.title}
-                              </p>
-                              <p className="text-sm text-muted-foreground">
-                                {block.start} to {block.end}
-                              </p>
-                            </div>
-                            <Badge
-                              variant={statusBadgeVariant[block.status]}
-                              className="rounded-full px-3 py-1"
-                            >
-                              {block.status}
-                            </Badge>
-                          </div>
+                  <div className="flex-1 overflow-y-auto pr-1">
+                    <div className="space-y-4">
+                      {selectedDayBlocks.length > 0 ? (
+                        selectedDayBlocks.map((block, index) => (
+                          <Card
+                            key={`${block.taskId}-${index}`}
+                            className="border-border/70 bg-background py-0 shadow-none"
+                          >
+                            <CardContent className="space-y-3 px-5 py-5">
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="space-y-1">
+                                  <p className="text-lg font-semibold text-foreground">
+                                    {block.title}
+                                  </p>
+                                  <p className="text-sm text-muted-foreground">
+                                    {block.start} to {block.end}
+                                  </p>
+                                </div>
+                                <Badge
+                                  variant={statusBadgeVariant[block.status]}
+                                  className="rounded-full px-3 py-1"
+                                >
+                                  {block.status}
+                                </Badge>
+                              </div>
 
-                          <Separator />
+                              <Separator />
 
-                          <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
-                            <span>{block.duration} min</span>
-                            <span>&middot;</span>
-                            <span className="capitalize">{block.priority} priority</span>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))
-                  ) : (
-                    <Card className="border-dashed border-border/70 bg-muted/20 py-0 shadow-none">
-                      <CardContent className="space-y-2 px-6 py-10 text-center">
-                        <p className="text-lg font-medium text-foreground">
-                          No tasks on this date
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          Pick a highlighted day to see its schedule.
-                        </p>
-                      </CardContent>
-                    </Card>
-                  )}
+                              <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
+                                <span>{block.duration} min</span>
+                                <span>&middot;</span>
+                                <span className="capitalize">{block.priority} priority</span>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))
+                      ) : (
+                        <Card className="border-dashed border-border/70 bg-muted/20 py-0 shadow-none">
+                          <CardContent className="space-y-2 px-6 py-10 text-center">
+                            <p className="text-lg font-medium text-foreground">
+                              No tasks on this date
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              Pick a highlighted day to see its schedule.
+                            </p>
+                          </CardContent>
+                        </Card>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
             ) : (
