@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { format, parseISO } from "date-fns";
 
 import api from "@/api/axios";
@@ -53,6 +53,15 @@ interface ScheduleResponse {
   plan: PlannedTaskBlock[];
 }
 
+interface ImportedCalendarEvent {
+  _id: string;
+  title: string;
+  start: string;
+  end: string;
+  allDay: boolean;
+  source: string;
+}
+
 const weekDays: Array<{ key: WeekdayKey; label: string }> = [
   { key: "monday", label: "Mon" },
   { key: "tuesday", label: "Tue" },
@@ -69,6 +78,16 @@ const statusBadgeVariant = {
   atRisk: "destructive",
 } as const;
 
+function getCalendarEndpoint(path: string): string {
+  const apiBaseUrl = import.meta.env.VITE_API_URL || "/api";
+
+  if (apiBaseUrl.endsWith("/api")) {
+    return `${apiBaseUrl.slice(0, -4)}${path}`;
+  }
+
+  return `${apiBaseUrl}${path}`;
+}
+
 function Schedule() {
   const [schedule, setSchedule] = useState<ScheduleResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -77,8 +96,12 @@ function Schedule() {
   const [isSavingAvailability, setIsSavingAvailability] = useState(false);
   const [isReplanning, setIsReplanning] = useState(false);
   const [isDownloadingCalendar, setIsDownloadingCalendar] = useState(false);
+  const [isImportingCalendar, setIsImportingCalendar] = useState(false);
+  const [isClearingCalendar, setIsClearingCalendar] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [viewMonth, setViewMonth] = useState<Date>(new Date());
+  const [importedEvents, setImportedEvents] = useState<ImportedCalendarEvent[]>([]);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [availableFrom, setAvailableFrom] = useState("09:00");
   const [availableTo, setAvailableTo] = useState("18:00");
@@ -111,6 +134,18 @@ function Schedule() {
       setError(err.response?.data?.message || "Failed to load schedule");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function fetchImportedEvents() {
+    try {
+      const response = await api.get(getCalendarEndpoint("/calendar/events"));
+      setImportedEvents(response.data.events || []);
+    } catch (err: any) {
+      setError(
+        err.response?.data?.message ||
+          "Failed to load imported calendar events"
+      );
     }
   }
 
@@ -177,10 +212,7 @@ function Schedule() {
       setError("");
       setIsDownloadingCalendar(true);
 
-      const apiBaseUrl = import.meta.env.VITE_API_URL || "/api";
-      const calendarUrl = apiBaseUrl.endsWith("/api")
-        ? `${apiBaseUrl.slice(0, -4)}/calendar/download-all`
-        : `${apiBaseUrl}/calendar/download-all`;
+      const calendarUrl = getCalendarEndpoint("/calendar/download-all");
 
       const response = await api.get(calendarUrl, {
         responseType: "blob",
@@ -205,8 +237,63 @@ function Schedule() {
     }
   }
 
+  async function handleImportCalendar(
+    event: React.ChangeEvent<HTMLInputElement>
+  ) {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    try {
+      setError("");
+      setSuccess("");
+      setIsImportingCalendar(true);
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      await api.post(getCalendarEndpoint("/calendar/import-ics"), formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
+      await Promise.all([fetchSchedule(), fetchImportedEvents()]);
+      setSuccess("Calendar imported successfully and busy times were applied.");
+    } catch (err: any) {
+      setError(err.response?.data?.message || "Failed to import calendar");
+    } finally {
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+
+      setIsImportingCalendar(false);
+    }
+  }
+
+  async function handleClearImportedCalendar() {
+    try {
+      setError("");
+      setSuccess("");
+      setIsClearingCalendar(true);
+
+      await api.delete(getCalendarEndpoint("/calendar/events"));
+      await Promise.all([fetchSchedule(), fetchImportedEvents()]);
+      setSuccess("Imported calendar events cleared successfully.");
+    } catch (err: any) {
+      setError(
+        err.response?.data?.message || "Failed to clear imported calendar events"
+      );
+    } finally {
+      setIsClearingCalendar(false);
+    }
+  }
+
   useEffect(() => {
     fetchSchedule();
+    fetchImportedEvents();
   }, []);
 
   const blocksByDate = useMemo(() => {
@@ -397,8 +484,76 @@ function Schedule() {
                     ? "Preparing .ics..."
                     : "Download Apple Calendar"}
                 </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-11 rounded-full px-5 text-sm"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isImportingCalendar}
+                >
+                  {isImportingCalendar ? "Importing .ics..." : "Import Apple .ics"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-11 rounded-full px-5 text-sm"
+                  onClick={handleClearImportedCalendar}
+                  disabled={isClearingCalendar || importedEvents.length === 0}
+                >
+                  {isClearingCalendar ? "Clearing..." : "Clear imported calendar"}
+                </Button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".ics,text/calendar"
+                  className="hidden"
+                  onChange={handleImportCalendar}
+                />
               </div>
             </form>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border/70 bg-background/90 py-0 shadow-none">
+          <CardHeader className="space-y-2 px-6 pt-6">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="space-y-1">
+                <CardTitle className="text-2xl font-semibold text-foreground">
+                  Imported busy events
+                </CardTitle>
+                <CardDescription className="text-sm leading-6">
+                  These Apple Calendar events are treated as blocked time when the planner builds your schedule.
+                </CardDescription>
+              </div>
+
+              <Badge variant="secondary" className="rounded-full px-3 py-1">
+                {importedEvents.length} imported
+              </Badge>
+            </div>
+          </CardHeader>
+
+          <CardContent className="space-y-3 px-6 pb-6">
+            {importedEvents.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No external calendar events imported yet.
+              </p>
+            ) : (
+              importedEvents.slice(0, 6).map((event) => (
+                <div
+                  key={event._id}
+                  className="rounded-2xl border border-border/70 bg-muted/15 px-4 py-3"
+                >
+                  <p className="font-medium text-foreground">{event.title}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {event.allDay
+                      ? `${new Date(event.start).toLocaleDateString()} · All day`
+                      : `${new Date(event.start).toLocaleString()} - ${new Date(
+                          event.end
+                        ).toLocaleString()}`}
+                  </p>
+                </div>
+              ))
+            )}
           </CardContent>
         </Card>
 
