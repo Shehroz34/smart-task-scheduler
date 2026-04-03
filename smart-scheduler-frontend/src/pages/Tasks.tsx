@@ -186,7 +186,7 @@ function Tasks() {
               </Badge>
               <div className="space-y-1">
                 <CardTitle className="text-3xl font-semibold tracking-tight text-foreground">
-                  {editingTaskId ? "Refine an existing task" : "Create a new task"}
+                  {editingTaskId ? "Refine an existing task" : "Add a new task"}
                 </CardTitle>
                 <CardDescription className="text-sm leading-6">
                   Define duration, deadline, priority, and difficulty so the
