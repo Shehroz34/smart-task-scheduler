@@ -9,6 +9,7 @@ services:
       JWT_SECRET: change_this_to_a_long_random_string
       JWT_EXPIRES_IN: 7d
       CORS_ORIGIN: http://localhost:5173
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
     ports:
       - "5050:5050"
 
