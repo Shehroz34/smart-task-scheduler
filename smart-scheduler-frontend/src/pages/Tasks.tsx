@@ -25,6 +25,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import { addNotification } from "@/lib/notifications";
 
 interface Task {
   _id: string;
@@ -132,8 +133,18 @@ function Tasks() {
 
       if (editingTaskId) {
         await api.put(`/tasks/${editingTaskId}`, payload);
+        addNotification({
+          title: "Task updated",
+          message: `"${title}" was updated successfully.`,
+          kind: "task",
+        });
       } else {
         await api.post("/tasks", payload);
+        addNotification({
+          title: "Task created",
+          message: `"${title}" was added to your task queue.`,
+          kind: "task",
+        });
       }
 
       resetForm();
@@ -152,7 +163,15 @@ function Tasks() {
 
   async function handleCompleteTask(taskId: string) {
     try {
+      const completedTask = tasks.find((task) => task._id === taskId);
       await api.patch(`/tasks/${taskId}/complete`);
+      addNotification({
+        title: "Task completed",
+        message: completedTask
+          ? `"${completedTask.title}" was marked as complete.`
+          : "A task was marked as complete.",
+        kind: "task",
+      });
       await fetchTasks();
     } catch (err: any) {
       setError(err.response?.data?.message || "Failed to complete task");

@@ -15,6 +15,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { addNotification } from "@/lib/notifications";
 
 const scheduleRefreshKey = "scheduleLastUpdatedAt";
 
@@ -48,6 +49,11 @@ function Dashboard() {
 
     try {
       await updateScheduledTask(taskId, start.toISOString(), end.toISOString());
+      addNotification({
+        title: "Task rescheduled",
+        message: `"${eventChange.event.title}" was moved to ${start.toLocaleString()}.`,
+        kind: "schedule",
+      });
       await loadSchedule();
     } catch (err) {
       eventChange.revert();

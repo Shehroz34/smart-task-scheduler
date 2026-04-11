@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { addNotification } from "@/lib/notifications";
 import { cn } from "@/lib/utils";
 
 interface PlannedTaskBlock {
@@ -94,6 +95,26 @@ function notifyScheduleChanged() {
   localStorage.setItem(scheduleRefreshKey, Date.now().toString());
 }
 
+function syncAtRiskNotifications(plan: PlannedTaskBlock[]) {
+  const seenTaskIds = new Set<string>();
+
+  for (const block of plan) {
+    if (block.status !== "atRisk" || seenTaskIds.has(block.taskId)) {
+      continue;
+    }
+
+    seenTaskIds.add(block.taskId);
+    addNotification({
+      title: "Task at risk",
+      message: `"${block.title}" may miss its deadline of ${new Date(
+        block.deadline
+      ).toLocaleString()}.`,
+      kind: "warning",
+      dedupeKey: `at-risk-${block.taskId}-${block.deadline}`,
+    });
+  }
+}
+
 function Schedule() {
   const [schedule, setSchedule] = useState<ScheduleResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -124,6 +145,7 @@ function Schedule() {
       const data = response.data;
 
       setSchedule(data);
+      syncAtRiskNotifications(data.plan ?? []);
 
       if (data.availability) {
         setAvailableFrom(data.availability.availableFrom);
@@ -165,10 +187,16 @@ function Schedule() {
       const data = response.data;
 
       setSchedule(data);
+      syncAtRiskNotifications(data.plan ?? []);
       const firstPlannedDate = data.plan?.length ? parseISO(data.plan[0].date) : undefined;
       setSelectedDate(firstPlannedDate);
       setViewMonth(firstPlannedDate ?? new Date());
       notifyScheduleChanged();
+      addNotification({
+        title: "Schedule rescheduled",
+        message: "Your planner rebuilt the timetable using the latest constraints.",
+        kind: "schedule",
+      });
       setSuccess("Schedule replanned successfully");
     } catch (err: any) {
       setError(err.response?.data?.message || "Failed to replan schedule");
@@ -186,6 +214,12 @@ function Schedule() {
       setError("");
       setSuccess("");
       setIsSavingAvailability(true);
+      const previousAvailability = {
+        availableFrom: schedule?.availability.availableFrom,
+        availableTo: schedule?.availability.availableTo,
+        breakStart: schedule?.availability.breakStart,
+        breakEnd: schedule?.availability.breakEnd,
+      };
 
       await api.put("/users/availability", {
         availableFrom,
@@ -199,10 +233,28 @@ function Schedule() {
       const data = response.data;
 
       setSchedule(data);
+      syncAtRiskNotifications(data.plan ?? []);
       const firstPlannedDate = data.plan?.length ? parseISO(data.plan[0].date) : undefined;
       setSelectedDate(firstPlannedDate);
       setViewMonth(firstPlannedDate ?? new Date());
       notifyScheduleChanged();
+      addNotification({
+        title: "Availability updated",
+        message: `Working hours were updated to ${availableFrom} - ${availableTo}.`,
+        kind: "availability",
+      });
+
+      if (
+        previousAvailability.breakStart !== breakStart ||
+        previousAvailability.breakEnd !== breakEnd
+      ) {
+        addNotification({
+          title: "Break time updated",
+          message: `Your break window is now ${breakStart} - ${breakEnd}.`,
+          kind: "availability",
+        });
+      }
+
       setSuccess("Availability updated successfully");
     } catch (err: any) {
       if (err.response?.data?.errors) {
