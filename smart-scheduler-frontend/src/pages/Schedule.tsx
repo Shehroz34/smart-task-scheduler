@@ -51,6 +51,11 @@ interface ScheduleResponse {
     freeDays: WeekdayKey[];
   };
   totalBlocks: number;
+  appliedWellbeingLevel?: number;
+  effectiveWorkHours?: number | null;
+  reservedRestMinutes?: number;
+  wellbeingNote?: string;
+  scheduleLightened?: boolean;
   plan: PlannedTaskBlock[];
 }
 
@@ -435,6 +440,20 @@ function Schedule() {
               <Alert className="border-border/70 bg-muted/20">
                 <AlertTitle>Updated</AlertTitle>
                 <AlertDescription>{success}</AlertDescription>
+              </Alert>
+            )}
+
+            {!loading && schedule?.scheduleLightened && (
+              <Alert className="border-amber-200 bg-amber-50/70">
+                <AlertTitle>Today's wellbeing was applied</AlertTitle>
+                <AlertDescription>
+                  Level {schedule.appliedWellbeingLevel} reduced today's capacity to{" "}
+                  {schedule.effectiveWorkHours ?? 0} hours and kept{" "}
+                  {schedule.reservedRestMinutes ?? 0} minutes open for rest.
+                  {schedule.wellbeingNote
+                    ? ` Note: ${schedule.wellbeingNote}`
+                    : ""}
+                </AlertDescription>
               </Alert>
             )}
 
