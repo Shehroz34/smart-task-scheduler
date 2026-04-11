@@ -17,6 +17,7 @@ const navItems = [
   { to: "/", label: "Dashboard" },
   { to: "/tasks", label: "Tasks" },
   { to: "/schedule", label: "Schedule" },
+  { to: "/wellbeing", label: "Wellbeing" },
 ];
 
 function Navbar() {

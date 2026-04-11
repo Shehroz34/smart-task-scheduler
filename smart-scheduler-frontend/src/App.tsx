@@ -4,6 +4,7 @@ import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import Tasks from "./pages/Tasks";
 import Schedule from "./pages/Schedule";
+import Wellbeing from "./pages/Wellbeing";
 import ProtectedRoute from "./components/ProtectedRoute";
 import "./index.css";
 function App() {
@@ -36,6 +37,15 @@ function App() {
           element={
             <ProtectedRoute>
               <Schedule />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/wellbeing"
+          element={
+            <ProtectedRoute>
+              <Wellbeing />
             </ProtectedRoute>
           }
         />
