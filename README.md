@@ -63,24 +63,17 @@ Smart-Schedular/
 
 1. Open terminal at project root:
 
-
-2. Set your OpenAI key for the current shell:
-
-	```bash
-	export OPENAI_API_KEY="your_openai_api_key"
-	```
-
-3. Build and start both services:
+2. Build and start both services:
 
 	```bash
 	docker compose up --build
 	```
 
-4. Open:
-- Frontend: http://localhost:4173
+3. Open:
+- Frontend: http://localhost:5173
 - Backend API: http://localhost:5050
 
-5. Stop services:
+4. Stop services:
 
 	```bash
 	docker compose down
