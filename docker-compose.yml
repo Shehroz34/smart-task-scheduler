@@ -9,7 +9,6 @@ services:
       JWT_SECRET: "change_this_to_a_long_random_string"
       JWT_EXPIRES_IN: "7d"
       CORS_ORIGIN: "http://localhost:5173"
-      OPENAI_API_KEY: "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"
     ports:
       - "5050:5050"
 
