@@ -16,6 +16,9 @@ function CalendarView({ events, onEventChange }: CalendarViewProps) {
       <FullCalendar
         plugins={[timeGridPlugin, dayGridPlugin, interactionPlugin]}
         initialView="timeGridWeek"
+        // Keep schedule blocks on their intended wall-clock hour instead of shifting
+        // them by the browser's local timezone offset.
+        timeZone="UTC"
         headerToolbar={{
           left: "prev,next today",
           center: "title",
